@@ -1,0 +1,14 @@
+{
+    "customer_id": "123",
+    "zip_code": "85201",
+    "items": [
+        {
+            "med_id": "1",
+            "quantity": 1
+        },
+        {
+            "med_id": "2",
+            "quantity": 1
+        }
+    ]
+}

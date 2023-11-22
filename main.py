@@ -6,6 +6,7 @@ AGENT_NAME = "agent_name"
 ORDER_ID = "order_id"
 ZIPCODE = "zip_code"
 UUID = "uuid"
+STATUS = "status"
 WAREHOUSE_ID = "warehouse_id"
 MED_ID = "med_id"
 ORDER = "Orders"
@@ -33,10 +34,14 @@ def make_order(conn, zip_codes):
         table_creation_query = f"""
         CREATE TABLE {ORDER}(
             {CUSTOMER_ID} INT NOT NULL,
+            {STATUS} VARCHAR(10) NOT NULL,
             {ORDER_ID} VARCHAR(10),
             {ZIPCODE} VARCHAR(5) NOT NULL,
-            {AGENT_ID} SERIAL
+            {AGENT_ID} INT
         ) PARTITION BY LIST ({ZIPCODE});"""
+
+        create_sequence_query = f"CREATE SEQUENCE order_id_seq START 9000;"
+        cur.execute(create_sequence_query)
         print(table_creation_query)
         cur.execute(table_creation_query)
         zip_list = [f"{i:02}" for i in range(zip_codes)]
@@ -77,7 +82,7 @@ def create_database(dbname, conn):
     cur = conn.cursor()
     conn.set_isolation_level(extensions.ISOLATION_LEVEL_AUTOCOMMIT)
     create = "create database " + dbname + ";"
-    drop_database_query = f"DROP DATABASE IF EXISTS {dbname};"
+    drop_database_query = f"DROP DATABASE IF EXISTS {dbname} WITH (FORCE);"
     cur.execute(drop_database_query)
     cur.execute(create)
     conn.commit()
