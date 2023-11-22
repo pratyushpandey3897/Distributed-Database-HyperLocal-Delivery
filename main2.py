@@ -31,7 +31,7 @@ def reserve_order_items(cursor, order_id, order_items, zip_code):
             retries = 0
             
             while retries < retry_count:  # Set a limit for the number of retries
-                cursor.execute(" SELECT * FROM inventory WHERE med_id = %s AND order_id IS NULL AND zip_code = %s LIMIT %s", (item['med_id'], zip_code, item['quantity']))
+                cursor.execute(" SELECT * FROM inventory WHERE med_id = %s AND order_id IS NULL AND zip_code = %s FOR UPDATE LIMIT %s", (item['med_id'], zip_code, item['quantity']))
                 rows = cursor.fetchall()
                 if len(rows) < item['quantity']:
                     # Not enough items, release locks and try again
