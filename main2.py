@@ -33,7 +33,9 @@ def reserve_order_items(cursor, order_id, order_items, zip_code):
             retries = 0
             
             while retries < retry_count:  # Set a limit for the number of retries
-                cursor.execute(" SELECT * FROM inventory WHERE med_id = %s AND order_id IS NULL AND zip_code = %s order by uuid  LIMIT %s FOR UPDATE ", (item['med_id'], zip_code, item['quantity']))
+                # cursor.execute(" SELECT * FROM inventory WHERE med_id = %s AND order_id IS NULL order by uuid  LIMIT %s FOR UPDATE", (item['med_id'], item['quantity']))
+
+                cursor.execute(" SELECT * FROM inventory WHERE med_id = %s AND order_id IS NULL AND zip_code = %s order by uuid  LIMIT %s FOR UPDATE", (item['med_id'], zip_code, item['quantity']))
                 rows = cursor.fetchall()
                 if len(rows) < item['quantity']:
                     # Not enough items, release locks and try again
@@ -183,10 +185,11 @@ def main():
     unsuccessful_orders = 0
     total_qty =0
     ttime =0
-    with open('orders4.json') as json_file:
+    # with open('sample_order.json') as json_file:
+    with open('sample_order2_partition.json') as json_file:
         orders = json.loads(json_file.read())
 
-    with ThreadPoolExecutor(50) as executor:
+    with ThreadPoolExecutor() as executor:
         
         futures = []
         for order in orders:

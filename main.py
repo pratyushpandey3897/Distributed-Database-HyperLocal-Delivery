@@ -35,7 +35,7 @@ def make_order(conn, zip_codes):
             {CUSTOMER_ID} INT NOT NULL,
             {STATUS} VARCHAR(10) NOT NULL,
             {ORDER_ID} VARCHAR(10),
-            {ZIPCODE} VARCHAR(5) NOT NULL,
+            {ZIPCODE} INT NOT NULL,
             {AGENT_ID} INT
         ) PARTITION BY LIST ({ZIPCODE});"""
    
@@ -44,12 +44,12 @@ def make_order(conn, zip_codes):
         cur.execute(create_sequence_query)
         print(table_creation_query)
         cur.execute(table_creation_query)
-        zip_list = [f"{i:02}" for i in range(zip_codes)]
-        for z in zip_list:
-            partition_creation_query = f"CREATE TABLE Order_zip_code_852{z} PARTITION OF {ORDER} FOR VALUES IN ('852{z}');"
+        zip_c =  85200
+        for i in range (0, zip_codes):
+            partition_creation_query = f"CREATE TABLE Order_zip_code_{zip_c+i} PARTITION OF {ORDER} FOR VALUES IN ({zip_c+i});"
             cur.execute(partition_creation_query)
             # create index if not exists
-            index_creation_query = f"CREATE INDEX IF NOT EXISTS Order_zip_code_852{z}_index ON Order_zip_code_852{z} ({ORDER_ID});"
+            index_creation_query = f"CREATE INDEX IF NOT EXISTS Order_zip_code_{zip_c+i}_index ON Order_zip_code_{zip_c+i}  ({ORDER_ID});"
             cur.execute(index_creation_query)
         conn.commit()
     except Exception as e:
@@ -68,19 +68,19 @@ def make_order_item(conn, zip_codes):
             {ORDER_ID} VARCHAR(10),
             {MED_ID} INT NOT NULL,
             {QUANTITY} INT NOT NULL,
-            {ZIPCODE} VARCHAR(5) NOT NULL
+            {ZIPCODE} INT NOT NULL
         ) PARTITION BY LIST ({ZIPCODE});"""
         cur.execute(table_creation_query)
 
         #create index if not exists
         index_creation_query = f"CREATE INDEX IF NOT EXISTS {ORDER_ITEM}_zip_code_index ON {ORDER_ITEM} ({ZIPCODE});"
         cur.execute(index_creation_query)
-        zip_list = [f"{i:02}" for i in range(zip_codes)]
-        for z in zip_list:
-            partition_creation_query = f"CREATE TABLE Order_Item_zip_code_852{z} PARTITION OF {ORDER_ITEM} FOR VALUES IN ('852{z}');"
+        zip_c =  85200
+        for i in range (0, zip_codes):
+            partition_creation_query = f"CREATE TABLE Order_Item_zip_code_{zip_c+i} PARTITION OF {ORDER_ITEM} FOR VALUES IN ({zip_c+i});"
             cur.execute(partition_creation_query)
             # create index if not exists
-            index_creation_query = f"CREATE INDEX IF NOT EXISTS Order_Item_zip_code_852{z}_index ON Order_Item_zip_code_852{z} ({ORDER_ID});"
+            index_creation_query = f"CREATE INDEX IF NOT EXISTS Order_Item_zip_code_{zip_c+i}_index ON Order_Item_zip_code_{zip_c+i} ({ORDER_ID});"
             cur.execute(index_creation_query)
 
         conn.commit()
@@ -110,7 +110,7 @@ def make_delivery_agent(conn, zip_codes):
         {AGENT_ID} SERIAL,
         {AGENT_NAME} VARCHAR(255) NOT NULL,
         {ORDER_ID} VARCHAR(10),
-        {ZIPCODE} VARCHAR(5) NOT NULL
+        {ZIPCODE} INT NOT NULL
     ) PARTITION BY LIST ({ZIPCODE});"""
 
     cur.execute(table_creation_query)
@@ -118,12 +118,12 @@ def make_delivery_agent(conn, zip_codes):
     index_creation_query = f"CREATE INDEX IF NOT EXISTS Delivery_Agent_zip_code_index ON Delivery_Agent ({ZIPCODE});"   
     cur.execute(index_creation_query)
 
-    zip_list = [f"{i:02}" for i in range(zip_codes)]
-    for z in zip_list:
-        partition_creation_query = f"CREATE TABLE Delivery_Agent_zip_code_852{z} PARTITION OF Delivery_Agent FOR VALUES IN ('852{z}');"
+    zip_c =  85200
+    for i in range (0, zip_codes):
+        partition_creation_query = f"CREATE TABLE Delivery_Agent_zip_code_{zip_c+i} PARTITION OF Delivery_Agent FOR VALUES IN ({zip_c+i});"
         cur.execute(partition_creation_query)
         # create index if not exists
-        index_creation_query = f"CREATE INDEX IF NOT EXISTS Delivery_Agent_zip_code_852{z}_index ON Delivery_Agent_zip_code_852{z} ({ORDER_ID});"
+        index_creation_query = f"CREATE INDEX IF NOT EXISTS Delivery_Agent_zip_code_{zip_c+i}_index ON Delivery_Agent_zip_code_{zip_c+i}({ORDER_ID});"
         cur.execute(index_creation_query)
 
     conn.commit()
@@ -132,15 +132,16 @@ def make_delivery_agent(conn, zip_codes):
 def insert_data_agent(conn, zip_codes):
     print("Inserting data into Delivery_Agent table...")
     zip_codes = min(2, zip_codes)
-    zip_list = [f"{i:02}" for i in range(zip_codes)]
+    zip_c =  85200
+        
     names = ["Alice", "Bob", "Charlie", "David", "Eva", "Frank", "Grace", "Henry", "Ivy", "Jack",
              "Kate", "Leo", "Mia", "Noah", "Olivia", "Peter", "Quinn", "Ruby", "Sam", "Tom"]
 
     cur = conn.cursor()
-    for zp in zip_list:
+    for i in range (0, zip_codes):
         for _ in range(1200):  # Create 4 agents for each zip code
             name = random.choice(names)
-            insert_data_query = f"INSERT INTO {DELIVERY_AGENT_TABLE} ({AGENT_NAME},{ORDER_ID},{ZIPCODE}) VALUES ('{name}',NULL,'852{zp}') RETURNING {AGENT_ID}"
+            insert_data_query = f"INSERT INTO {DELIVERY_AGENT_TABLE} ({AGENT_NAME},{ORDER_ID},{ZIPCODE}) VALUES ('{name}',NULL,{zip_c+i}) RETURNING {AGENT_ID}"
             cur.execute(insert_data_query)
 
     conn.commit()
@@ -159,7 +160,7 @@ def make_inventory(conn, zipcodes):
         {WAREHOUSE_ID} INT NOT NULL,
         {ORDER_ID} VARCHAR(10),
         {MED_ID} INT NOT NULL,
-        {ZIPCODE} VARCHAR(10) NOT NULL,
+        {ZIPCODE} INT NOT NULL,
         PRIMARY KEY ( {ZIPCODE}, {MED_ID}, {UUID})
     ) PARTITION BY LIST ({ZIPCODE});
                                """
@@ -167,12 +168,12 @@ def make_inventory(conn, zipcodes):
     cur.execute(table_creation_query)
     
 
-    zip_list = [f"{i:02}" for i in range(zip_codes)]
-    for z in zip_list:
-        partition_creation_query = f"CREATE TABLE Inventory_zip_code_852{z} PARTITION OF {INVENTORY} FOR VALUES IN ('852{z}');"
+    zip_c =  85200
+    for i in range (0, zip_codes):
+        partition_creation_query = f"CREATE TABLE Inventory_zip_code_{zip_c+i} PARTITION OF {INVENTORY} FOR VALUES IN ({zip_c+i});"
         cur.execute(partition_creation_query)
         # create index if not exists
-        index_creation_query = f"CREATE INDEX IF NOT EXISTS Inventory_zip_code_852{z}_index ON Inventory_zip_code_852{z} ({MED_ID});"
+        index_creation_query = f"CREATE INDEX IF NOT EXISTS Inventory_zip_code_{zip_c+i}_index ON Inventory_zip_code_{zip_c+i} ({MED_ID});"
         # cur.execute(index_creation_query)
         
 
@@ -182,15 +183,16 @@ def make_inventory(conn, zipcodes):
 def insert_data_inventory(conn, zip_codes, warehouse, medicine, rows_inventory):
     print("Inserting data into Inventory table...")
     zip_codes = min(6, zip_codes)
-    zip_list = [f"{i:02}" for i in range(zip_codes)]
+    # zip_list = [f"{i:02}" for i in range(zip_codes)]
     warehouse_list = list(range(1, warehouse + 1))
     medicine_list = list(range(1, medicine + 1))
     cur = conn.cursor()
-    for zp in zip_list:
+    zip_c =  85200
+    for i in range (0, zip_codes):
         for medi in medicine_list:
-            for _ in range(500):  # Ensure 10 counts for each med_id
+            for _ in range(1400):  # Ensure 10 counts for each med_id
                 wh = random.choice(warehouse_list)
-                insert_data_query = f"INSERT INTO {INVENTORY} ({WAREHOUSE_ID},{ORDER_ID},{MED_ID},{ZIPCODE}) VALUES ({wh},NULL,{medi},'852{zp}')"
+                insert_data_query = f"INSERT INTO {INVENTORY} ({WAREHOUSE_ID},{ORDER_ID},{MED_ID},{ZIPCODE}) VALUES ({wh},NULL,{medi},{zip_c+i})"
                 cur.execute(insert_data_query)
 
     conn.commit()

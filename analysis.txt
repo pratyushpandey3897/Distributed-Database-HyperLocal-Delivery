@@ -48,3 +48,76 @@ Number of unsuccessful orders: 0
 Number of orders: 70
 Total quantity of items ordered: 70
 query time : 0.48595476150512695
+
+
+
+without skip locked
+
+Time taken to complete all threads: 0.039108991622924805 seconds
+Number of successful orders: 70
+Number of unsuccessful orders: 0
+Number of orders: 70
+Total quantity of items ordered: 70
+query time : 0.06577253341674805
+
+with skip locked
+
+Time taken to complete all threads: 0.053739070892333984 seconds
+Number of successful orders: 70
+Number of unsuccessful orders: 0
+Number of orders: 70
+Total quantity of items ordered: 70
+query time : 0.08101367950439453
+
+
+non partition 
+Time taken to complete all threads: 0.27472877502441406 seconds
+Number of successful orders: 265
+Number of unsuccessful orders: 0
+Number of orders: 265
+Total quantity of items ordered: 1329
+query time : 1.9681239128112793
+
+with partition 
+
+Time taken to complete all threads: 0.25735020637512207 seconds
+Number of successful orders: 265
+Number of unsuccessful orders: 0
+Number of orders: 265
+Total quantity of items ordered: 1329
+query time : 1.8213732242584229
+
+
+
+non partition no skip locked
+Time taken to complete all threads: 1.0145869255065918 seconds
+Number of successful orders: 265
+Number of unsuccessful orders: 0
+Number of orders: 265
+Total quantity of items ordered: 1329
+query time : 11.652525663375854
+
+partition query with no skip locked
+Time taken to complete all threads: 0.8182649612426758 seconds
+Number of successful orders: 265
+Number of unsuccessful orders: 0
+Number of orders: 265
+Total quantity of items ordered: 1329
+query time : 9.219826459884644
+
+
+same zip code with partition query
+Time taken to complete all threads: 1.109874963760376 seconds
+Number of successful orders: 265
+Number of unsuccessful orders: 0
+Number of orders: 265
+Total quantity of items ordered: 1329
+query time : 12.52156376838684
+
+different zip code no partition query 
+Time taken to complete all threads: 1.1117990016937256 seconds
+Number of successful orders: 265
+Number of unsuccessful orders: 0
+Number of orders: 265
+Total quantity of items ordered: 1329
+query time : 12.538541555404663
