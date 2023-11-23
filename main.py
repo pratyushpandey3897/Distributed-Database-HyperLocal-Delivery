@@ -23,7 +23,6 @@ import logging
 # logging.basicConfig(level=logging.INFO)
 print("hello tables...")
 
-
 def make_order(conn, zip_codes):
     print("Creating Order table...")
     try:
@@ -156,12 +155,12 @@ def make_inventory(conn, zipcodes):
 
     table_creation_query = f"""
     CREATE TABLE Inventory (
-        {UUID} UUID DEFAULT uuid_generate_v4(),
+        {UUID} serial,
         {WAREHOUSE_ID} INT NOT NULL,
         {ORDER_ID} VARCHAR(10),
         {MED_ID} INT NOT NULL,
         {ZIPCODE} VARCHAR(10) NOT NULL,
-        PRIMARY KEY ({UUID}, {ZIPCODE})
+        PRIMARY KEY ( {ZIPCODE}, {MED_ID}, {UUID})
     ) PARTITION BY LIST ({ZIPCODE});
                                """
 
@@ -189,7 +188,7 @@ def insert_data_inventory(conn, zip_codes, warehouse, medicine, rows_inventory):
     cur = conn.cursor()
     for zp in zip_list:
         for medi in medicine_list:
-            for _ in range(2000):  # Ensure 10 counts for each med_id
+            for _ in range(500):  # Ensure 10 counts for each med_id
                 wh = random.choice(warehouse_list)
                 insert_data_query = f"INSERT INTO {INVENTORY} ({WAREHOUSE_ID},{ORDER_ID},{MED_ID},{ZIPCODE}) VALUES ({wh},NULL,{medi},'852{zp}')"
                 cur.execute(insert_data_query)

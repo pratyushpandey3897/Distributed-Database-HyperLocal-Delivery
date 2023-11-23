@@ -13,3 +13,38 @@
 "              Rows Removed by Filter: 141"
 "Planning Time: 0.217 ms"
 "Execution Time: 0.354 ms"
+
+//SKIP LOCKED
+"Limit  (cost=0.28..0.47 rows=1 width=33) (actual time=0.338..0.339 rows=0 loops=1)"
+"  ->  LockRows  (cost=0.28..90.95 rows=493 width=33) (actual time=0.337..0.337 rows=0 loops=1)"
+"        ->  Index Scan using inventory_zip_code_85201_pkey on inventory_zip_code_85201 inventory  (cost=0.28..86.02 rows=493 width=33) (actual time=0.336..0.336 rows=0 loops=1)"
+"              Index Cond: (((zip_code)::text = '85201'::text) AND (med_id = 1))"
+"              Filter: (order_id IS NULL)"
+"              Rows Removed by Filter: 500"
+"Planning Time: 0.232 ms"
+"Execution Time: 0.399 ms"
+
+
+Time taken to complete all threads: 0.12746977806091309 seconds
+Number of successful orders: 70
+Number of unsuccessful orders: 0
+Number of orders: 70
+Total quantity of items ordered: 70
+query time : 0.22498178482055664
+
+//NO SKIP
+"Limit  (cost=0.28..0.47 rows=1 width=33) (actual time=0.359..0.360 rows=0 loops=1)"
+"  ->  LockRows  (cost=0.28..90.95 rows=493 width=33) (actual time=0.358..0.358 rows=0 loops=1)"
+"        ->  Index Scan using inventory_zip_code_85201_pkey on inventory_zip_code_85201 inventory  (cost=0.28..86.02 rows=493 width=33) (actual time=0.357..0.357 rows=0 loops=1)"
+"              Index Cond: (((zip_code)::text = '85201'::text) AND (med_id = 1))"
+"              Filter: (order_id IS NULL)"
+"              Rows Removed by Filter: 500"
+"Planning Time: 0.828 ms"
+"Execution Time: 0.402 ms"
+
+Time taken to complete all threads: 0.12694501876831055 seconds
+Number of successful orders: 70
+Number of unsuccessful orders: 0
+Number of orders: 70
+Total quantity of items ordered: 70
+query time : 0.48595476150512695
