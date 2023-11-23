@@ -198,6 +198,7 @@ def insert_data_inventory(conn, zip_codes, warehouse, medicine, rows_inventory):
     conn.commit()
 
 def create_sql_function(conn):
+    # todo: add more sql procedures for without partition cluse and with partition clause, also without skip locked and with skip locked
     cursor = conn.cursor()
     cursor.execute("""
         CREATE OR REPLACE FUNCTION update_inventory(order_id_param INT, med_id_param INT, zip_code_param INT, quantity_param INT)
