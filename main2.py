@@ -30,25 +30,15 @@ def reserve_order_items(cursor, order_id, order_items, zip_code):
         uuids = []
         retry_count = 1
         for item in order_items:
-            retries = 0
-            
-            while retries < retry_count:  # Set a limit for the number of retries
-                # cursor.execute(" SELECT * FROM inventory WHERE med_id = %s AND order_id IS NULL order by uuid  LIMIT %s FOR UPDATE", (item['med_id'], item['quantity']))
-
-                cursor.execute(" SELECT * FROM inventory WHERE med_id = %s AND order_id IS NULL AND zip_code = %s order by uuid  LIMIT %s FOR UPDATE", (item['med_id'], zip_code, item['quantity']))
-                rows = cursor.fetchall()
-                if len(rows) < item['quantity']:
-                    # Not enough items, release locks and try again
-                    # cursor.execute("ROLLBACK")
-                    # time.sleep(0.1)  # Wait for a short delay before trying again
-                    retries += 1
-                    return None
-                else:
-                    cursor.executemany("UPDATE inventory SET order_id = %s WHERE uuid = %s AND zip_code = %s", [(order_id, row[0], zip_code) for row in rows])
-                    uuids.extend([row[0] for row in rows])
-                    break  # Exit the loop once the necessary number of rows have been locked
-            if retries == retry_count:
-                raise Exception("Failed to reserve items after {retry_count} retries")
+            try:
+                cursor.callproc('update_inventory', [order_id, item['med_id'], zip_code, item['quantity']])
+                updated_count = cursor.fetchone()[0]
+                # print(updated_count)
+                if updated_count != item['quantity']:
+                    raise Exception("Failed to reserve items after {retry_count} retries")
+            except Exception as e:
+                print(f"Error in reserve_order_items: {e}")
+                return None
         end_time = time.time()  # End the timer
         # print(f"Time taken to reserve order items for order_id {order_id}: {end_time - start_time} seconds")
         return uuids
@@ -56,6 +46,41 @@ def reserve_order_items(cursor, order_id, order_items, zip_code):
         
         print(f"Error in reserve_order_items: {e}")
         return None
+
+
+# def reserve_order_items(cursor, order_id, order_items, zip_code):
+#     QUERYTIME = 0
+#     start_time = time.time()  # Start the timer
+#     try:
+#         uuids = []
+#         retry_count = 1
+#         for item in order_items:
+#             retries = 0
+            
+#             while retries < retry_count:  # Set a limit for the number of retries
+#                 # cursor.execute(" SELECT * FROM inventory WHERE med_id = %s AND order_id IS NULL order by uuid  LIMIT %s FOR UPDATE", (item['med_id'], item['quantity']))
+
+#                 # cursor.execute(" SELECT * FROM inventory WHERE med_id = %s AND order_id IS NULL AND zip_code = %s order by uuid  LIMIT %s FOR UPDATE", (item['med_id'], zip_code, item['quantity']))
+#                 rows = cursor.fetchall()
+#                 if len(rows) < item['quantity']:
+#                     # Not enough items, release locks and try again
+#                     # cursor.execute("ROLLBACK")
+#                     # time.sleep(0.1)  # Wait for a short delay before trying again
+#                     retries += 1
+#                     return None
+#                 else:
+#                     cursor.executemany("UPDATE inventory SET order_id = %s WHERE uuid = %s AND zip_code = %s", [(order_id, row[0], zip_code) for row in rows])
+#                     uuids.extend([row[0] for row in rows])
+#                     break  # Exit the loop once the necessary number of rows have been locked
+#             if retries == retry_count:
+#                 raise Exception("Failed to reserve items after {retry_count} retries")
+#         end_time = time.time()  # End the timer
+#         # print(f"Time taken to reserve order items for order_id {order_id}: {end_time - start_time} seconds")
+#         return uuids
+#     except Exception as e:
+        
+#         print(f"Error in reserve_order_items: {e}")
+#         return None
 
 def assign_agent(cursor, order_id, zip_code):
     start_time = time.time()  # Start the timer
@@ -76,7 +101,6 @@ def assign_agent(cursor, order_id, zip_code):
 
 def process_order(json_data, order_id):
     QUERYTIME = 0
-    start_time = time.time()
 
     # Parse the JSON data
     data = json.loads(json_data)
@@ -84,6 +108,8 @@ def process_order(json_data, order_id):
 
     # Get a connection from the pool
     conn = conn_pool.getconn()
+    start_time = time.time()
+
     cursor = conn.cursor()
     try:
         # Start the transaction
@@ -186,6 +212,7 @@ def main():
     total_qty =0
     ttime =0
     # with open('sample_order.json') as json_file:
+    # with open('sample_order2.json') as json_file:
     with open('sample_order2_partition.json') as json_file:
         orders = json.loads(json_file.read())
 

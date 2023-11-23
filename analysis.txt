@@ -121,3 +121,18 @@ Number of unsuccessful orders: 0
 Number of orders: 265
 Total quantity of items ordered: 1329
 query time : 12.538541555404663
+
+
+
+procedure with skip lock different zipcodes
+Time taken to complete all threads: 0.42708587646484375 seconds
+Number of successful orders: 265
+Number of unsuccessful orders: 0
+Number of orders: 265
+Total quantity of items ordered: 1329
+query time : 2.7762835025787354
+
+explain analyze for the above stats
+"Function Scan on update_inventory  (cost=0.25..0.26 rows=1 width=4) (actual time=7.597..7.597 rows=1 loops=1)"
+"Planning Time: 0.046 ms"
+"Execution Time: 7.618 ms"

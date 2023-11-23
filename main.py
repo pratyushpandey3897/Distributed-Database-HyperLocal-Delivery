@@ -197,6 +197,37 @@ def insert_data_inventory(conn, zip_codes, warehouse, medicine, rows_inventory):
 
     conn.commit()
 
+def create_sql_function(conn):
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE OR REPLACE FUNCTION update_inventory(order_id_param INT, med_id_param INT, zip_code_param INT, quantity_param INT)
+            RETURNS INT AS
+            $$
+            DECLARE
+                row_count INT;
+                updated_count INT;
+            BEGIN
+                WITH selected_rows AS (
+                    SELECT uuid
+                    FROM inventory
+                    WHERE med_id = med_id_param AND order_id IS NULL AND zip_code = zip_code_param
+                    ORDER BY uuid
+                    LIMIT quantity_param
+                    FOR UPDATE skip locked
+                ),
+                updated_rows AS (
+                    UPDATE inventory 
+                    SET order_id = order_id_param
+                    WHERE uuid IN (SELECT uuid FROM selected_rows)
+                    RETURNING uuid
+                )
+                SELECT COUNT(*) INTO updated_count FROM updated_rows;
+                RETURN updated_count;
+            END;
+            $$ LANGUAGE plpgsql;
+            """)
+    conn.commit()
+
 
 if __name__ == '__main__':
     zipcodes = 10
@@ -216,6 +247,8 @@ if __name__ == '__main__':
         insert_data_agent(conn, zipcodes)
         make_inventory(conn, zipcodes)
         insert_data_inventory(conn, zipcodes, warehouse, medicine, rows_inventory)
+        create_sql_function(conn)
+
         conn.close()
     except Exception as e:
         print(e)
