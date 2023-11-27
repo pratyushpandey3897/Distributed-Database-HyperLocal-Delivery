@@ -231,9 +231,6 @@ def execute():
                 ttime+= future.result()[3]
 
 
-    print(successful_order_ids)
-
-
 
     print(f"Time taken to complete all order reservations: {ttime} milliseconds")
     print(f"Number of successful orders: {successful_orders}")

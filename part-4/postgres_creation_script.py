@@ -25,13 +25,9 @@ from psycopg2 import extensions
 import random
 import logging
 
-# logging.basicConfig(level=logging.INFO)
-print("hello tables...")
 
 def make_order(conn, zip_codes):
-    print("Creating Order table...")
     try:
-        print("Creating Order table...")
         # logging.info("Creating Order table...")
         zip_codes = min(100, zip_codes)
         cur = conn.cursor()
@@ -47,7 +43,6 @@ def make_order(conn, zip_codes):
      
         create_sequence_query = f"CREATE SEQUENCE order_id_seq START 9000;"
         cur.execute(create_sequence_query)
-        print(table_creation_query)
         cur.execute(table_creation_query)
         zip_c =  85200
         for i in range (0, zip_codes):
@@ -62,9 +57,7 @@ def make_order(conn, zip_codes):
 
 
 def make_order_item(conn, zip_codes):
-    print("Creating Order_Item table...")
     try:
-        print("Creating Order_Item table...")
         # logging.info("Creating Order_Item table...")
         zip_codes = min(100, zip_codes)
         cur = conn.cursor()
@@ -94,7 +87,6 @@ def make_order_item(conn, zip_codes):
 
 
 def create_database(dbname, conn):
-    print("Creating database...")
     cur = conn.cursor()
     conn.set_isolation_level(extensions.ISOLATION_LEVEL_AUTOCOMMIT)
     create = "create database " + dbname + ";"
@@ -106,7 +98,6 @@ def create_database(dbname, conn):
 
 
 def make_delivery_agent(conn, zip_codes):
-    print("Creating Delivery_Agent table...")
     zip_codes = min(100, zip_codes)
 
     cur = conn.cursor()
@@ -135,7 +126,6 @@ def make_delivery_agent(conn, zip_codes):
 
 
 def insert_data_agent(conn, zip_codes):
-    print("Inserting data into Delivery_Agent table...")
     zip_codes = min(100, zip_codes)
     zip_c =  85200
         
@@ -153,7 +143,6 @@ def insert_data_agent(conn, zip_codes):
 
 
 def make_inventory(conn, zipcodes):
-    print("Creating Inventory table...")
     zip_codes = min(100, zipcodes)
 
     cur = conn.cursor()
@@ -186,7 +175,6 @@ def make_inventory(conn, zipcodes):
 
 
 def insert_data_inventory(conn, zip_codes, warehouse, medicine):
-    print("Inserting data into Inventory table...")
     zip_codes = min(6, zip_codes)
     warehouse_list = list(range(1, warehouse + 1))
     medicine_list = list(range(1, medicine + 1))
@@ -305,7 +293,6 @@ def create(type):
         conn = psycopg2.connect(database="postgres", user="postgres", host='localhost', password="postgres", port=5432)
         create_database(DATABASE, conn)
         conn = psycopg2.connect(database=DATABASE, user="postgres", host='localhost', password="postgres", port=5432)
-        print(conn)
         make_order(conn, zipcodes)
         make_order_item(conn, zipcodes)
         make_delivery_agent(conn, zipcodes)

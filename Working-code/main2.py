@@ -191,7 +191,7 @@ def process_order(json_data, order_id):
         cursor.execute(" SET TRANSACTION ISOLATION LEVEL READ COMMITTED;")
         # Reserve the order for each item in the order
         response_reserve, time_reserve = reserve_order_items(cursor, order_id, data['items'], data["zip_code"])
-        if response_reserve:
+        if response_reserve==False:
             raise Exception("Failed to reserve order items")
 
         # # Find the first agent with null or no order_id and assign the order id to this table
