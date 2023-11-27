@@ -5,6 +5,7 @@ from psycopg2 import pool
 import time
 from concurrent.futures import ThreadPoolExecutor
 import postgres_creation_script
+import sys
 
 QUERYTIME = 0.0
 
@@ -240,15 +241,15 @@ def execute():
     print(f"Number of orders: {len(orders)}")
     print(f"Total quantity of items ordered: {total_qty}")
 
+
 def main():
     
-    # postgres_creation_script.create('vanilla')
+    type = sys.argv[1]
+    #vanilla
+    #forupdatenoskip
+    #forupdateskiplocked
 
-  
-    # postgres_creation_script.create('forupdatenoskip')
-
-
-    postgres_creation_script.create('forupdateskiplocked')
+    postgres_creation_script.create(type)
     create_conn_pool()
     execute()
 
