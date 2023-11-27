@@ -17,8 +17,8 @@ QUANTITY = "quantity"
 zipcodes = 10
 warehouse = 10
 medicine = 100
-agent_per_zipcode = 50
-stock_per_warehouse = 400
+agent_per_zipcode = 150
+stock_per_warehouse = 201
 
 import psycopg2
 from psycopg2 import extensions
@@ -217,7 +217,7 @@ def create_sql_function_vanilla(conn):
                     FROM inventory
                     WHERE med_id = med_id_param AND order_id IS NULL AND zip_code = zip_code_param
                     ORDER BY uuid
-                    LIMIT quantity_param
+                    LIMIT quantity_param 
                 ),
                 updated_rows AS (
                     UPDATE inventory 
