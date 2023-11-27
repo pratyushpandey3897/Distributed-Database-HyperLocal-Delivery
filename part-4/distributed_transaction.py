@@ -9,16 +9,17 @@ import postgres_creation_script
 QUERYTIME = 0.0
 
 # Create a connection pool
-conn_pool = psycopg2.pool.SimpleConnectionPool(
-    90,  # minconn
-    100,  # maxconn
-    database="delivery_system",
-    user="postgres",
-    password="postgres",
-    host="localhost",
-    port="5432"
-)
-
+def create_conn_pool ():
+    global conn_pool
+    conn_pool = psycopg2.pool.SimpleConnectionPool(
+        90,  # minconn
+        100,  # maxconn
+        database="delivery_system",
+        user="postgres",
+        password="postgres",
+        host="localhost",
+        port="5432"
+    )
 
 
 
@@ -34,14 +35,14 @@ def reserve_order_items(cursor, order_id, order_items, zip_code):
             updated_count = cursor.fetchone()[0]
             # print(updated_count)
             if updated_count != item['quantity']:
-                print(f"Failed to reserve items for order {order_id} after {retry_count} retries")
+                # print(f"Failed to reserve items for order {order_id} after {retry_count} retries")
                 end_time = time.time()
                 return False, end_time - start_time
         end_time = time.time()
         return True, end_time - start_time
     except Exception as e:
         end_time = time.time()
-        print(f"Error in reserve_order_items: {e}")
+        # print(f"Error in reserve_order_items: {e}")
         return False, end_time - start_time
 
 
@@ -93,7 +94,7 @@ def assign_agent(cursor, order_id, zip_code):
             # print(f"Time taken to assign agent for order_id {order_id}: {end_time - start_time} seconds")
             return agent[0]
     except Exception as e:
-        print(f"Error in assign_agent: {e}")
+        # print(f"Error in assign_agent: {e}")
         return None
 
 def update_order_status(cursor, order_id, status, agent_id):
@@ -102,7 +103,7 @@ def update_order_status(cursor, order_id, status, agent_id):
         # print(f"Time taken to update order status for order_id {order_id}: {end_time - start_time} seconds")
         return order_id
     except Exception as e:
-        print(f"Error in update_order_status: {e}")
+        # print(f"Error in update_order_status: {e}")
         return None
     
 
@@ -145,7 +146,7 @@ def process_order(json_data, order_id):
     except Exception as e:
         # Rollback the transaction in case of any errors
         conn.rollback()
-        print(f"Error in process_order: {e}")
+        # print(f"Error in process_order: {e}")
       
         return False, [], None,  time_reserve
     finally:
@@ -160,8 +161,10 @@ def store_order_details(json_data):
 
     # Get a connection from the pool
     conn = conn_pool.getconn()
-    cursor = conn.cursor()
+    # print(conn)
 
+    cursor = conn.cursor()
+    # print(cursor)
     try:
         # Start the transaction
         cursor.execute("BEGIN")
@@ -169,7 +172,7 @@ def store_order_details(json_data):
         # Generate a sequential order_id
         cursor.execute("SELECT nextval('order_id_seq')")
         order_id = cursor.fetchone()[0]
-
+        
         # Insert the order details into the ORDER table with status as 'pending' and agent_id as null
         cursor.execute("INSERT INTO ORDERS (order_id, customer_id, zip_code, status, agent_id) VALUES (%s, %s, %s, %s, %s)", (order_id, customer_id, zip_code, 'NOT_PROCESSED', None))
         for item in data['items']:
@@ -182,7 +185,7 @@ def store_order_details(json_data):
     except Exception as e:
         # Rollback the transaction in case of any errors
         conn.rollback()
-        print("Failed to store order details" , e)
+        # print("Failed to store order details" , e)
     finally:
         # Return the connection back to the pool
         conn_pool.putconn(conn)
@@ -238,13 +241,14 @@ def execute():
 
 def main():
     
-    postgres_creation_script.create('vanilla')
-    execute()
+    # postgres_creation_script.create('vanilla')
 
+  
     postgres_creation_script.create('forupdatenoskip')
-    execute()
 
-    postgres_creation_script.create('forupdateskiplocked')
+
+    # postgres_creation_script.create('forupdateskiplocked')
+    create_conn_pool()
     execute()
 
 

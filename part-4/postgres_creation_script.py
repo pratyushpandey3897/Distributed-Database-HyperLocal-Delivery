@@ -320,9 +320,10 @@ def create(type):
         elif type == 'forupdateskiplocked':
             create_sql_function_for_update_skip_locked(conn)
 
-        conn.close()
     except Exception as e:
         print(e)
         print("Error")
         logging.error(f"Error creating database: {e}")
+    finally:
+        conn.close()
 
