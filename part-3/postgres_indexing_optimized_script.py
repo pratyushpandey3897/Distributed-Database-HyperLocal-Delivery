@@ -117,7 +117,7 @@ def make_delivery_agent(conn, zip_codes):
     cur.execute(table_creation_query)
 
     index_creation_query = f"CREATE INDEX IF NOT EXISTS Delivery_Agent_zip_code_index ON Delivery_Agent ({ZIPCODE});"   
-    cur.execute(index_creation_query)
+    # cur.execute(index_creation_query)
 
     zip_c =  85200
     for i in range (0, zip_codes):
@@ -165,6 +165,16 @@ def make_inventory(conn, zipcodes):
         PRIMARY KEY ( {ZIPCODE}, {MED_ID}, {UUID})
     ) PARTITION BY LIST ({ZIPCODE});
                                """
+    
+    # table_creation_query = f"""
+    # CREATE TABLE Inventory (
+    #     {UUID} serial,
+    #     {WAREHOUSE_ID} INT NOT NULL,
+    #     {ORDER_ID} INT,
+    #     {MED_ID} INT NOT NULL,
+    #     {ZIPCODE} INT NOT NULL
+    # ) PARTITION BY LIST ({ZIPCODE});
+    #                            """
 
     cur.execute(table_creation_query)
     
@@ -175,7 +185,7 @@ def make_inventory(conn, zipcodes):
         cur.execute(partition_creation_query)
         # create index if not exists
         index_creation_query = f"CREATE INDEX IF NOT EXISTS Inventory_zip_code_{zip_c+i}_index ON Inventory_zip_code_{zip_c+i} ({MED_ID});"
-        cur.execute(index_creation_query)
+        # cur.execute(index_creation_query)
         
 
     conn.commit()
@@ -259,7 +269,7 @@ def optimized_reserve_order_items(cursor, order_id, order_items, zip_code):
         # print(f"Time taken to reserve order items for order_id {order_id}: {end_time - start_time} seconds")
         return end_time - start_time
     except Exception as e:
-        # print(f"Error in reserve_order_items: {e}")
+        print(f"Error in reserve_order_items: {e}")
         end_time = time.time()
         return end_time - start_time
 
@@ -329,7 +339,7 @@ if __name__ == '__main__':
                 data = json.load(f)
             return data
 
-        # print("=========================================UnOptimized reserve order items=========================================")
+        # print("=========================================UnOptimized: Without Indexing=========================================")
         # order_data = load_order_data('mockaroo_orderplace_400.json')
         # order_id = 9000
         # totaltime = 0
@@ -338,16 +348,26 @@ if __name__ == '__main__':
         #     order_id += 1
         # print(f"Total time taken to reserve order items for {len(order_data)} orders: {totaltime} seconds")
 
-        create_function(conn)
-
-        print("=========================================Optimized reserve order items by solving N+1 problem =========================================")
+        print("=========================================Optimized: With Indexing=========================================")
         order_data = load_order_data('mockaroo_orderplace_400.json')
         order_id = 9000
         totaltime = 0
         for order in order_data:
-            totaltime += optimized_reserve_order_items(conn.cursor(), order_id, order['items'], order['zip_code'])
+            totaltime += unoptimized_reserve_order_items(conn.cursor(), order_id, order['items'], order['zip_code'])
             order_id += 1
         print(f"Total time taken to reserve order items for {len(order_data)} orders: {totaltime} seconds")
+
+        # create_function(conn)
+
+        # print("=========================================Optimized reserve order items by solving N+1 problem =========================================")
+        # order_data = load_order_data('mockaroo_orderplace_400.json')
+        # order_id = 9000
+        # totaltime = 0
+        # for order in order_data:
+        #     totaltime += optimized_reserve_order_items(conn.cursor(), order_id, order['items'], order['zip_code'])
+        #     order_id += 1
+        # print(f"Total time taken to reserve order items for {len(order_data)} orders: {totaltime} seconds")
+
         conn.close()
     except Exception as e:
         print(e)

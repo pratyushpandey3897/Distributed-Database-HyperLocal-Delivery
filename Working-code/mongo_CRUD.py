@@ -118,6 +118,55 @@ def get_warehouse_details(collection, warehouse_id):
     warehouse = read_data(collection, query)
     return warehouse
 
+def get_customers_by_zipcode(collection, postal_code):
+    query = {"postal_code": postal_code}
+    customers = collection.find(query)
+    customers = list(customers)
+
+    table = PrettyTable(['Customer Name', 'Email', 'Phone Number', 'Full Address', 'Postal Code', 'Country'])
+    for customer in customers:
+        full_name = f"{customer['first_name']} {customer['last_name']}"
+        full_address = f"{customer['address']}, {customer['city']}, {customer['state']}"
+        table.add_row([full_name, customer['email'], customer['phone_number'], full_address, customer['postal_code'], customer['country']])
+    print(table)
+
+def get_customer_orders(collection, customer_id):
+    customer = collection.find_one({"customer_id": customer_id})
+    if not customer:
+        print(f"No customer found with id {customer_id}")
+        return
+
+    recent_orders = customer.get("recent_orders", [])
+    older_orders = customer.get("older_orders", [])
+
+    table = PrettyTable(['Order Type', 'Order ID', 'Status', 'Items'])
+    for order in recent_orders:
+        items = ', '.join([f"Medicine ID: {item['med_id']}, Quantity: {item['quantity']}" for item in order['items']])
+        table.add_row(['Recent', order['order_id'], order['status'], items])
+    print(table)
+
+def get_medicine_demand(medicine_collection, fullfillment_collection, med_id):
+    # Fetch all orders with the given medicine id
+    orders = fullfillment_collection.find({"items.med_id": med_id})
+
+    # Calculate total demand and successful orders
+    total_demand = 0
+    successful_orders = 0
+    for order in orders:
+        for item in order['items']:
+            if item['med_id'] == med_id:
+                total_demand += item['quantity']
+                if order['status']:
+                    successful_orders += item['quantity']
+
+    # Fetch medicine details
+    medicine = medicine_collection.find_one({"med_id": med_id})
+
+    # Print details in a table
+    table = PrettyTable(['Medicine ID', 'Medicine Name', 'Drug', 'Company', 'Price', 'Total Demand', 'Successful Orders'])
+    table.add_row([medicine['med_id'], medicine['med_name'], medicine['drug'], medicine['drug_company'], medicine['price'], total_demand, successful_orders])
+    print(table)
+
 if __name__ == "__main__":
 
     # Fetch the price of a medicine
@@ -126,3 +175,6 @@ if __name__ == "__main__":
     # price = get_medicine_price(medicine_collection, medicine_id, medicine_name)
     # print(f"The price of {medicine_name} is {price}")
     generate_analytics(fullfillment_collection, medicine_collection)
+    get_customers_by_zipcode (customer_collection, 85201)
+    get_customer_orders(customer_collection, 1)
+    get_medicine_demand(medicine_collection, fullfillment_collection, 15)
