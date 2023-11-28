@@ -176,5 +176,5 @@ if __name__ == "__main__":
     # print(f"The price of {medicine_name} is {price}")
     generate_analytics(fullfillment_collection, medicine_collection)
     get_customers_by_zipcode (customer_collection, 85201)
-    get_customer_orders(customer_collection, 1)
+    get_customer_orders(customer_collection, 13)
     get_medicine_demand(medicine_collection, fullfillment_collection, 15)

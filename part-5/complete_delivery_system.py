@@ -2,26 +2,80 @@ import json
 import threading
 import psycopg2
 from psycopg2 import pool
+from mongo_CRUD import *
 import time
 from concurrent.futures import ThreadPoolExecutor
-import postgres_creation_script
-import sys
 
 QUERYTIME = 0.0
 
 # Create a connection pool
-def create_conn_pool ():
-    global conn_pool
-    conn_pool = psycopg2.pool.SimpleConnectionPool(
-        90,  # minconn
-        100,  # maxconn
-        database="delivery_system",
-        user="postgres",
-        password="postgres",
-        host="localhost",
-        port="5432"
-    )
+conn_pool = psycopg2.pool.SimpleConnectionPool(
+    90,  # minconn
+    100,  # maxconn
+    database="delivery_system",
+    user="postgres",
+    password="postgres",
+    host="localhost",
+    port="5432"
+)
 
+
+# def reserve_order_items(cursor, order_id, order_items, zip_code):
+#     QUERYTIME = 0
+#     start_time = time.time()  # Start the timer
+#     try:
+#         uuids = []
+#         items = []
+#         retry_count = 1
+#         for item in order_items:
+#             # Get the total inventory count for the current item at that point 
+#             cursor.execute("SELECT COUNT(*) FROM inventory WHERE med_id = %s AND order_id IS NULL AND zip_code = %s", (item['med_id'], zip_code))
+#             total_inventory = cursor.fetchone()[0]
+
+#             cursor.callproc('update_inventory', [order_id, item['med_id'], zip_code, item['quantity']])
+#             updated_count = cursor.fetchone()[0]
+
+#             # Get the assigned UUIDs for the current item
+#             cursor.execute("SELECT uuid FROM inventory WHERE order_id = %s AND med_id = %s AND zip_code = %s", (order_id, item['med_id'], zip_code))
+#             assigned_uuids = [row[0] for row in cursor.fetchall()]
+
+#             # Append item to the items list
+#             items.append({
+#                 'med_id': item['med_id'],
+#                 'demand': item['quantity'],
+#                 'inInventory': total_inventory,
+#                 'fulfilled': updated_count == item['quantity'],
+#                 'uuids': assigned_uuids
+#             })
+
+#             # # Store the fulfillment details in MongoDB
+#             # fullfillment_collection.insert_one({
+#             #     'order_id': order_id,
+#             #     'items': [{
+#             #         'med_id': item['med_id'],
+#             #         'demand': item['quantity'],
+#             #         'inInventory': total_inventory,
+#             #         'fulfilled': updated_count == item['quantity'],
+#             #         'uuids': assigned_uuids
+#             #     }]
+#             # })
+
+#             if updated_count != item['quantity']:
+#                 print(f"Failed to reserve items for order_id {order_id} after {retry_count} retries")
+#             else:
+#                 uuids.extend(assigned_uuids)
+#         end_time = time.time()
+#         fullfillment_collection.insert_one({
+#             'order_id': order_id,
+#             'items': items,
+#             'status': all(item['fulfilled'] for item in items)  # Set the status to True if all items are fulfilled
+#         })
+#         # print(f"Time taken to reserve order items for order_id {order_id}: {end_time - start_time} seconds")
+#         return uuids
+#     except Exception as e:
+#         print(f"Error in reserve_order_items: {e}")
+#         return None
+    
 
 
 def reserve_order_items(cursor, order_id, order_items, zip_code):
@@ -34,16 +88,16 @@ def reserve_order_items(cursor, order_id, order_items, zip_code):
        
             cursor.callproc('update_inventory', [order_id, item['med_id'], zip_code, item['quantity']])
             updated_count = cursor.fetchone()[0]
-            # print(str(updated_count) + " " + str(item['quantity']) + " " + str(updated_count != item['quantity']))
+            # print(updated_count)
             if updated_count != item['quantity']:
-                print(f"Failed to reserve items for order {order_id} after {retry_count} retries")
+                print(f"Failed to reserve items for order {order_id} due to shortage of items")
                 end_time = time.time()
                 return False, end_time - start_time
         end_time = time.time()
         return True, end_time - start_time
     except Exception as e:
         end_time = time.time()
-        print(f"Error in reserve_order_items: {e}")
+        # print(f"Error in reserve_order_items: {e}")
         return False, end_time - start_time
 
 
@@ -95,7 +149,7 @@ def assign_agent(cursor, order_id, zip_code):
             # print(f"Time taken to assign agent for order_id {order_id}: {end_time - start_time} seconds")
             return agent[0]
     except Exception as e:
-        print(f"Error in assign_agent: {e}")
+        print(f"Failed to assign_agent: {e}")
         return None
 
 def update_order_status(cursor, order_id, status, agent_id):
@@ -107,6 +161,16 @@ def update_order_status(cursor, order_id, status, agent_id):
         print(f"Error in update_order_status: {e}")
         return None
     
+def update_mongo_order_status(data, order_id, status):
+    try:
+        data["order_id"] = order_id
+        data["status"] = status
+        add_order(customer_collection, data["customer_id"], order_id, data)
+    
+    except Exception as e:
+        print(f"Error in update_order_status: {e}")
+        return None
+
 
 def process_order(json_data, order_id):
    
@@ -124,11 +188,10 @@ def process_order(json_data, order_id):
         # Start the transaction
 
         cursor.execute("BEGIN")
-        # cursor.execute(" SET TRANSACTION ISOLATION LEVEL READ COMMITTED;")
+        cursor.execute(" SET TRANSACTION ISOLATION LEVEL READ COMMITTED;")
         # Reserve the order for each item in the order
         response_reserve, time_reserve = reserve_order_items(cursor, order_id, data['items'], data["zip_code"])
-        # print(response_reserve)
-        if response_reserve ==False:
+        if response_reserve:
             raise Exception("Failed to reserve order items")
 
         # # Find the first agent with null or no order_id and assign the order id to this table
@@ -139,6 +202,7 @@ def process_order(json_data, order_id):
 
         order_id = update_order_status(cursor, order_id, 'PROCESSED', agent_id)
 
+        update_mongo_order_status(data, order_id, 'PROCESSED')
         # Commit the transaction
         conn.commit()
 
@@ -148,7 +212,8 @@ def process_order(json_data, order_id):
     except Exception as e:
         # Rollback the transaction in case of any errors
         conn.rollback()
-        print(f"Error in process_order: {e}")
+        update_mongo_order_status(data, order_id, 'FAILED')
+        # print(f"Error in process_order: {e}")
       
         return False, [], None,  time_reserve
     finally:
@@ -163,10 +228,8 @@ def store_order_details(json_data):
 
     # Get a connection from the pool
     conn = conn_pool.getconn()
-    # print(conn)
-
     cursor = conn.cursor()
-    # print(cursor)
+
     try:
         # Start the transaction
         cursor.execute("BEGIN")
@@ -174,7 +237,7 @@ def store_order_details(json_data):
         # Generate a sequential order_id
         cursor.execute("SELECT nextval('order_id_seq')")
         order_id = cursor.fetchone()[0]
-        
+
         # Insert the order details into the ORDER table with status as 'pending' and agent_id as null
         cursor.execute("INSERT INTO ORDERS (order_id, customer_id, zip_code, status, agent_id) VALUES (%s, %s, %s, %s, %s)", (order_id, customer_id, zip_code, 'NOT_PROCESSED', None))
         for item in data['items']:
@@ -194,7 +257,93 @@ def store_order_details(json_data):
 
 
 
-def execute():
+
+def generate_bill_using_mongo_aggregation(orders, successful_order_ids):
+    medicine_pipeline = [
+        {
+            "$match": {
+                "med_id": {"$in": [item['med_id'] for order in orders for item in order['items']]}
+            }
+        },
+        {
+            "$project": {
+                "_id": 0,
+                "med_id": 1,
+                "med_name": 1,
+                "price": 1
+            }
+        }
+    ]
+
+    medicine_prices = list(medicine_collection.aggregate(medicine_pipeline))
+
+    customer_pipeline = [
+        {
+            "$match": {
+                "customer_id": {"$in": [order['customer_id'] for order in orders]}
+            }
+        },
+        {
+            "$project": {
+                "_id": 0,
+                "customer_id": 1,
+                "name": {"$concat": [{"$toString": "$first_name"}, " ", {"$toString": "$last_name"}]},
+                "address": {"$concat": [{"$toString": "$address"}, ", ", {"$toString": "$city"}, ", ", {"$toString": "$state"}, ", ", {"$toString": "$postal_code"}, ", ", {"$toString": "$country"}]},
+                "phone_number": {"$toString": "$phone_number"}
+            }
+        }
+    ]
+
+    customer_details = list(customer_collection.aggregate(customer_pipeline))
+    with open('bills.txt', 'w') as f:
+        for order in orders:
+            if order['order_id'] in successful_order_ids:
+                fullfillment_collection.insert_one({
+                    'order_id': order['order_id'],
+                    'items': order['items'],
+                    'status': True  # Set the status to True for successful orders
+                })
+                order['items'] = [
+                {
+                    **item,
+                    'med_name': next((m['med_name'] for m in medicine_prices if m['med_id'] == item['med_id']), None),
+                    'price': next((m['price'] for m in medicine_prices if m['med_id'] == item['med_id']), 0),
+                    'item_total': item['quantity'] * next((m['price'] for m in medicine_prices if m['med_id'] == item['med_id']), 0)
+                }
+                for item in order['items']
+                ]   
+                order['total'] = sum(item['item_total'] for item in order['items'])
+                order['customer'] = next((c for c in customer_details if c['customer_id'] == order['customer_id']), None)
+                f.write(format_order_as_bill(order))
+                f.write("\n" + "=" * 50 + "\n")  # write a separator between orders
+            else:
+                fullfillment_collection.insert_one({
+                    'order_id': order['order_id'],
+                    'items': order['items'],
+                    'status': False  # Set the status to True for successful orders
+                })
+                f.write(f"Order ID: {order['order_id']}\n")
+                f.write("Order Failed\n")
+                f.write("\n" + "=" * 50 + "\n")
+    json_object = json.dumps(orders, indent = 4)
+    # print(json_object)
+    return orders
+
+
+def format_order_as_bill(order):
+    bill = []
+    bill.append(f"Order ID: {order['order_id']}")
+    bill.append(f"Customer Name: {order['customer']['name']}")
+    bill.append(f"Address: {order['customer']['address']}")
+    bill.append(f"Phone Number: {order['customer']['phone_number']}")
+    bill.append("\nItems:")
+    bill.append(f"{'Item':<40}{'Quantity':<10}{'Price':<10}")
+    for i, item in enumerate(order['items'], start=1):
+        bill.append(f"{item['med_name']:<40}{item['quantity']:<10}{item['price']:<10}")
+    bill.append(f"\nTotal: {order['total']}")
+    return "\n".join(bill)
+
+def main():
     start_time = time.time()
     successful_orders = 0
     unsuccessful_orders = 0
@@ -202,7 +351,7 @@ def execute():
     ttime = 0
     # with open('sample_order.json') as json_file:
     # with open('sample_order2.json') as json_file:
-    with open('mockorder_100_2med.json') as json_file:
+    with open('mockaroo_orderplace_400.json') as json_file:
     # with open('sample_order2_partition.json') as json_file:
         orders = json.loads(json_file.read())
     successful_order_ids = []
@@ -231,27 +380,16 @@ def execute():
                 ttime+= future.result()[3]
 
 
+    # print(successful_order_ids)
+    generate_bill_using_mongo_aggregation(orders, successful_order_ids)
 
+
+    print("===================================================== Stats =====================================================")
     print(f"Time taken to complete all order reservations: {ttime} milliseconds")
     print(f"Number of successful orders: {successful_orders}")
     print(f"Number of unsuccessful orders: {unsuccessful_orders}")
     print(f"Number of orders: {len(orders)}")
-    print(f"Total medicines in inventory: 200")
-    print(f"Total demand of medicines: {total_qty}")
-    print(f"Total medicine demands fulfilled: {successful_orders*2} ")
-
-
-def main():
-    
-    type = sys.argv[1]
-    #vanilla
-    #forupdatenoskip
-    #forupdateskiplocked
-
-    postgres_creation_script.create(type)
-    create_conn_pool()
-    execute()
-
+    print(f"Total quantity of items ordered: {total_qty}")
 
 
 main()

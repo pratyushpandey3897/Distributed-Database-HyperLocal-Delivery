@@ -15,20 +15,13 @@ CUSTOMER_ID = "customer_id"
 MED_ID = "med_id"
 QUANTITY = "quantity"
 
-zipcodes = 10
-warehouse = 10
-medicine = 100
-agent_per_zipcode = 5
-stock_per_warehouse = 400
-
 import psycopg2
 from psycopg2 import extensions
 import random
 import logging
-from prettytable import PrettyTable
 
 # logging.basicConfig(level=logging.INFO)
-print("hello tables...")
+# print("hello tables...")
 
 def make_order(conn, zip_codes):
     print("Creating Order table...")
@@ -44,12 +37,20 @@ def make_order(conn, zip_codes):
             {ORDER_ID} INT,
             {ZIPCODE} INT NOT NULL,
             {AGENT_ID} INT
-        );"""
+        ) PARTITION BY LIST ({ZIPCODE});"""
    
      
         create_sequence_query = f"CREATE SEQUENCE order_id_seq START 9000;"
         cur.execute(create_sequence_query)
+        # print(table_creation_query)
         cur.execute(table_creation_query)
+        zip_c =  85200
+        for i in range (0, zip_codes):
+            partition_creation_query = f"CREATE TABLE Order_zip_code_{zip_c+i} PARTITION OF {ORDER} FOR VALUES IN ({zip_c+i});"
+            cur.execute(partition_creation_query)
+            # create index if not exists
+            index_creation_query = f"CREATE INDEX IF NOT EXISTS Order_zip_code_{zip_c+i}_index ON Order_zip_code_{zip_c+i}  ({ORDER_ID});"
+            cur.execute(index_creation_query)
         conn.commit()
     except Exception as e:
         logging.error(f"Error creating Order table: {e}")
@@ -68,8 +69,20 @@ def make_order_item(conn, zip_codes):
             {MED_ID} INT NOT NULL,
             {QUANTITY} INT NOT NULL,
             {ZIPCODE} INT NOT NULL
-        );"""
+        ) PARTITION BY LIST ({ZIPCODE});"""
         cur.execute(table_creation_query)
+
+        #create index if not exists
+        index_creation_query = f"CREATE INDEX IF NOT EXISTS {ORDER_ITEM}_zip_code_index ON {ORDER_ITEM} ({ZIPCODE});"
+        cur.execute(index_creation_query)
+        zip_c =  85200
+        for i in range (0, zip_codes):
+            partition_creation_query = f"CREATE TABLE Order_Item_zip_code_{zip_c+i} PARTITION OF {ORDER_ITEM} FOR VALUES IN ({zip_c+i});"
+            cur.execute(partition_creation_query)
+            # create index if not exists
+            index_creation_query = f"CREATE INDEX IF NOT EXISTS Order_Item_zip_code_{zip_c+i}_index ON Order_Item_zip_code_{zip_c+i} ({ORDER_ID});"
+            cur.execute(index_creation_query)
+
         conn.commit()
     except Exception as e:
         logging.error(f"Error creating Order_Item table: {e}")
@@ -98,9 +111,21 @@ def make_delivery_agent(conn, zip_codes):
         {AGENT_NAME} VARCHAR(255) NOT NULL,
         {ORDER_ID} INT,
         {ZIPCODE} INT NOT NULL
-    );"""
+    ) PARTITION BY LIST ({ZIPCODE});"""
 
     cur.execute(table_creation_query)
+
+    index_creation_query = f"CREATE INDEX IF NOT EXISTS Delivery_Agent_zip_code_index ON Delivery_Agent ({ZIPCODE});"   
+    cur.execute(index_creation_query)
+
+    zip_c =  85200
+    for i in range (0, zip_codes):
+        partition_creation_query = f"CREATE TABLE Delivery_Agent_zip_code_{zip_c+i} PARTITION OF Delivery_Agent FOR VALUES IN ({zip_c+i});"
+        cur.execute(partition_creation_query)
+        # create index if not exists
+        index_creation_query = f"CREATE INDEX IF NOT EXISTS Delivery_Agent_zip_code_{zip_c+i}_index ON Delivery_Agent_zip_code_{zip_c+i}({ORDER_ID});"
+        cur.execute(index_creation_query)
+
     conn.commit()
 
 
@@ -136,10 +161,22 @@ def make_inventory(conn, zipcodes):
         {ORDER_ID} INT,
         {MED_ID} INT NOT NULL,
         {ZIPCODE} INT NOT NULL,
-        PRIMARY KEY ({UUID})
-    );"""
+        PRIMARY KEY ( {ZIPCODE}, {MED_ID}, {UUID})
+    ) PARTITION BY LIST ({ZIPCODE});
+                               """
 
     cur.execute(table_creation_query)
+    
+
+    zip_c =  85200
+    for i in range (0, zip_codes):
+        partition_creation_query = f"CREATE TABLE Inventory_zip_code_{zip_c+i} PARTITION OF {INVENTORY} FOR VALUES IN ({zip_c+i});"
+        cur.execute(partition_creation_query)
+        # create index if not exists
+        index_creation_query = f"CREATE INDEX IF NOT EXISTS Inventory_zip_code_{zip_c+i}_index ON Inventory_zip_code_{zip_c+i} ({MED_ID});"
+        # cur.execute(index_creation_query)
+        
+
     conn.commit()
 
 
@@ -159,64 +196,45 @@ def insert_data_inventory(conn, zip_codes, warehouse, medicine):
 
     conn.commit()
 
-def get_medicine_in_inventory(conn, zip_code, med_id):
-    cur = conn.cursor()
-    query = f"SELECT * FROM {INVENTORY} WHERE {ZIPCODE} = {zip_code} and {MED_ID} = {med_id}"
-    cur.execute(query)
-    results = cur.fetchall()
+def create_sql_function(conn):
+    # todo: add more sql procedures for without partition cluse and with partition clause, also without skip locked and with skip locked
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE OR REPLACE FUNCTION update_inventory(order_id_param INT, med_id_param INT, zip_code_param INT, quantity_param INT)
+            RETURNS INT AS
+            $$
+            DECLARE
+                row_count INT;
+                updated_count INT;
+            BEGIN
+                WITH selected_rows AS (
+                    SELECT uuid
+                    FROM inventory
+                    WHERE med_id = med_id_param AND order_id IS NULL AND zip_code = zip_code_param
+                    ORDER BY uuid
+                    LIMIT quantity_param
+                    FOR UPDATE skip locked
+                ),
+                updated_rows AS (
+                    UPDATE inventory 
+                    SET order_id = order_id_param
+                    WHERE uuid IN (SELECT uuid FROM selected_rows)
+                    RETURNING uuid
+                )
+                SELECT COUNT(*) INTO updated_count FROM updated_rows;
+                RETURN updated_count;
+            END;
+            $$ LANGUAGE plpgsql;
+            """)
+    conn.commit()
 
-    table = PrettyTable()
-    table.field_names = ["UUID", "Warehouse ID", "Order ID", "Medicine ID", "Zip Code"]
-    for row in results:
-        table.add_row(row)
 
-    print(table)
-
-def get_agent_details(conn, zip_code):
-    cur = conn.cursor()
-    query = f"SELECT {AGENT_ID}, {AGENT_NAME}, {ZIPCODE}, {ORDER_ID} FROM {DELIVERY_AGENT_TABLE} WHERE {ZIPCODE} = {zip_code}"
-    cur.execute(query)
-    results = cur.fetchall()
-
-    table = PrettyTable()
-    table.field_names = ["Agent ID", "Agent Name", "Zip Code", "Order ID"]
-    for row in results:
-        table.add_row(row)
-
-    print(table)
-
-def get_available_agents(conn, zip_code):
-    cur = conn.cursor()
-    query = f"SELECT {AGENT_ID} FROM {DELIVERY_AGENT_TABLE} WHERE {ZIPCODE} = {zip_code} AND {ORDER_ID} IS NULL"
-    cur.execute(query)
-    results = cur.fetchall()
-
-    table = PrettyTable()
-    table.field_names = ["Agent ID"]
-    for row in results:
-        table.add_row(row)
-
-    print(table)
-
-def get_available_medicine_items(conn, zip_code, med_id):
-    cur = conn.cursor()
-    query = f"SELECT {MED_ID}, {UUID}, {WAREHOUSE_ID} FROM {INVENTORY} WHERE {ZIPCODE} = {zip_code} AND {ORDER_ID} IS NULL AND {MED_ID} = {med_id}"
-    cur.execute(query)
-    results = cur.fetchall()
-
-    table = PrettyTable()
-    table.field_names = ["Medicine ID", "UUID", "Warehouse ID"]
-    for row in results:
-        table.add_row(row)
-
-    print(table)
-
-def setup_unpartitioned_db():
-    # zipcodes = 10
-    # warehouse = 10
-    # medicine = 100
-    # agent_per_zipcode = 5
-    # stock_per_warehouse = 30
+if __name__ == '__main__':
+    zipcodes = 10
+    warehouse = 10
+    medicine = 100
+    agent_per_zipcode = 50
+    stock_per_warehouse = 400
     try:
         conn = psycopg2.connect(database="postgres", user="postgres", host='localhost', password="postgres", port=5432)
         create_database(DATABASE, conn)
@@ -228,21 +246,11 @@ def setup_unpartitioned_db():
         insert_data_agent(conn, zipcodes)
         make_inventory(conn, zipcodes)
         insert_data_inventory(conn, zipcodes, warehouse, medicine)
-
-        # sample SQL queries to fetch data
-        # get_medicine_in_inventory(conn, 85200,3)
-        # get_agent_details(conn, 85200)
-        # get_available_agents(conn, 85200)
-        # get_available_medicine_items(conn, 85200, 3)
-
-
+        create_sql_function(conn)
 
         conn.close()
     except Exception as e:
         print(e)
         print("Error")
         logging.error(f"Error creating database: {e}")
-
-if __name__ == '__main__':
-    setup_unpartitioned_db()
 
